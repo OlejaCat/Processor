@@ -1,0 +1,5 @@
+PUSH 3
+PUSH 1
+ADD
+HLT
+

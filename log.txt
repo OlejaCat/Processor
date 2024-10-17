@@ -1,0 +1,26 @@
+INFO: assembler/source/assembler.cpp:112 In function: convertFile
+Message: Just for fun
+INFO: assembler/source/assembler.cpp:119 In function: convertFile
+Message: 2
+INFO: assembler/source/assembler.cpp:138 In function: convertFile
+Message: Number read: 3
+INFO: assembler/source/assembler.cpp:112 In function: convertFile
+Message: Just for fun
+INFO: assembler/source/assembler.cpp:119 In function: convertFile
+Message: 2
+INFO: assembler/source/assembler.cpp:138 In function: convertFile
+Message: Number read: 1
+INFO: assembler/source/assembler.cpp:112 In function: convertFile
+Message: Just for fun
+INFO: assembler/source/assembler.cpp:119 In function: convertFile
+Message: 1
+INFO: assembler/source/assembler.cpp:112 In function: convertFile
+Message: Just for fun
+INFO: assembler/source/assembler.cpp:119 In function: convertFile
+Message: 1
+INFO: assembler/source/assembler.cpp:152 In function: convertFile
+Message: We hear in convert function pointer: 0x503000000070 size: 12
+INFO: assembler/source/assembler.cpp:66 In function: assembleFileToMachineCode
+Message: pointer to datad: 0x503000000070 size: 12
+INFO: assembler/source/assembler.cpp:86 In function: assembleFileToMachineCode
+Message: We can be hear if we writed
