@@ -1,0 +1,6 @@
+[submodule "Stack"]
+	path = Stack
+	url = https://github.com/OlejaCat/Stack/
+[submodule "MyMiniLib"]
+	path = MyMiniLib
+	url = https://github.com/OlejaCat/MyMiniLib
