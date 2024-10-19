@@ -1,14 +1,14 @@
 all: assembler processor
 
 assembler:
-	$(MAKE) -C assembler
+	$(MAKE) -C assembler_sources
 
 processor:
-	$(MAKE) -C processor
+	$(MAKE) -C processor_sources
 
 clean:
-	$(MAKE) -C assembler clean
-	$(MAKE) -C processor clean
+	$(MAKE) -C assembler_sources clean
+	$(MAKE) -C processor_sources clean
 
 .PHONY: assembler processor
 
