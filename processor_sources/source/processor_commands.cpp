@@ -1,5 +1,6 @@
 #include "processor_commands.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -82,3 +83,39 @@ void supCommand(SPU* spu)
 
     stackPush(spu->program_stack, result);
 }
+
+
+void outCommand(SPU* spu)
+{
+    assert(spu != NULL);
+
+    arguments_type element = 0;
+
+    stackPop(spu->program_stack, &element);
+
+    printf("Program out: %d\n", element);
+}
+
+
+void inCommand(SPU* spu)
+{
+    assert(spu != NULL);
+
+    arguments_type element = 0;
+
+    printf("Enter argument: ");
+    scanf("%d", &element);
+
+    stackPush(spu->program_stack, element);
+}
+
+
+void hltCommand(SPU* spu)
+{
+    // добавить сброс дампа
+
+    printf("Program end\n");
+}
+
+
+

@@ -13,6 +13,7 @@
 
 static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu);
 static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu);
+static ProcessorErrorHandler spuDtor(SPU* spu);
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -31,23 +32,42 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
         {
             case MachineCommands_PUSH:
                 pushArgument(&spu);
+                break;
 
             case MachineCommands_ADD:
                 addCommand(&spu);
+                break;
 
             case MachineCommands_MUL:
                 mulCommand(&spu);
+                break;
 
             case MachineCommands_DIV:
                 divCommand(&spu);
+                break;
 
             case MachineCommands_SUB:
                 supCommand(&spu);
+                break;
+
+            case MachineCommands_OUT:
+                outCommand(&spu);
+                break;
+
+            case MachineCommands_IN:
+                inCommand(&spu);
+                break;
 
             default:
                 assert(0 && "Unknown command");
         }
+
+        spu.ip++;
     }
+
+    hltCommand(&spu);
+
+    spuDtor(&spu);
 
     stackDtor(spu.program_stack);
 
@@ -56,6 +76,13 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
 
 
 // static --------------------------------------------------------------------------------------------------------------
+
+static ProcessorErrorHandler spuDtor(SPU* spu)
+{
+    free(spu->code);
+
+    return ProcessorErrorHandler_OK;
+}
 
 
 static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu)
@@ -72,6 +99,7 @@ static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu)
     spu->ip            = 0;
     spu->program_stack = stackCtor();
 
+    return ProcessorErrorHandler_OK;
 }
 
 

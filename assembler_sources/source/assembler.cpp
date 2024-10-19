@@ -102,15 +102,17 @@ static CompiledData convertFile(char* input_stream, const size_t size_of_input_d
 
     uint8_t* output_stream = (uint8_t*)calloc(size_of_input_data, sizeof(uint8_t));
 
+    size_t len = size_of_input_data;
+    while(len > 0 && input_stream[len - 1] == '\n')
+    {
+        input_stream[--len] = '\0';
+    }
 
     char* ptr_of_string = strtok(input_stream, "\n");
 
-    printf("%s", ptr_of_string);
     size_t shift = 0;
-    while (ptr_of_string)
+    while (ptr_of_string != NULL)
     {
-        Log(LogLevel_INFO, "Just for fun");
-
         char command_buffer[SIZE_OF_BUFFER] = {};
         int number_argument = 0;
 
@@ -124,6 +126,8 @@ static CompiledData convertFile(char* input_stream, const size_t size_of_input_d
         }
 
         MachineCommands returned_command = convertAsmToMachine(command_buffer);
+
+        Log(LogLevel_INFO, "Readed command %d", returned_command);
 
         if (returned_command == MachineCommands_UNKNOWN)
         {
@@ -141,7 +145,13 @@ static CompiledData convertFile(char* input_stream, const size_t size_of_input_d
             shift += sizeof(number_argument);
         }
 
+        Log(LogLevel_INFO, "AHHAHAHAHAHAH");
+
+        Log(LogLevel_INFO, "1: ptr: %s", ptr_of_string);
+
         ptr_of_string = strtok(NULL, "\n");
+
+        Log(LogLevel_INFO, "2: ptr: %s", ptr_of_string);
     }
 
     CompiledData compiled_data = {

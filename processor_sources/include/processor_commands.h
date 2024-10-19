@@ -20,5 +20,8 @@ void addCommand(SPU* spu);
 void mulCommand(SPU* spu);
 void supCommand(SPU* spu);
 void divCommand(SPU* spu);
+void outCommand(SPU* spu);
+void inCommand(SPU* spu);
+void hltCommand(SPU* spu);
 
 #endif // PROCESSOR_COMMANDS_H

@@ -8,4 +8,6 @@ typedef enum ProcessorErrorHandler
     ProcessorErrorHandler_OPEN_FILE_ERROR = 2,
 } ProcessorErrorHandler;
 
+ProcessorErrorHandler executeProgram(const char* path_to_program);
+
 #endif // PROCESSOR_H
