@@ -19,7 +19,7 @@ typedef struct CompiledData
     size_t   size;
 } CompiledData;
 
-CompiledData convertFile(char* input_stream, const size_t size_of_input_data);
+static CompiledData convertFile(char* input_stream, const size_t size_of_input_data);
 
 static const size_t SIZE_OF_BUFFER = 32;
 
@@ -96,7 +96,7 @@ AssemblerErrorHandler assembleFileToMachineCode(const char* input_file_path, con
 // static --------------------------------------------------------------------------------------------------------------
 
 
-CompiledData convertFile(char* input_stream, const size_t size_of_input_data)
+static CompiledData convertFile(char* input_stream, const size_t size_of_input_data)
 {
     assert(input_stream != NULL);
 

@@ -3,24 +3,16 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "stack.h"
 #include "helpful_functions.h"
-#include "../../command_processing/include/command_handler.h"
+#include "command_handler.h"
+#include "processor_commands.h"
 
 
 // static --------------------------------------------------------------------------------------------------------------
 
-typedef int asm_type;
 
-typedef struct SPU
-{
-    uint8_t* code;
-    size_t   ip;
-    size_t   size_of_code;
-    Stack*   program_stack;
-} SPU;
-
-ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu);
+static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu);
+static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu);
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -31,25 +23,29 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
     assert(path_to_program != NULL);
 
     SPU spu = {};
-
-    ProcessorErrorHandler return_code = readProgramCode(path_to_program, &spu);
-    if (return_code != ProcessorErrorHandler_OK)
-    {
-        return ProcessorErrorHandler_ERROR;
-    }
-
-
-    spu.ip            = 0;
-    spu.program_stack = stackCtor();
+    spuInit(path_to_program, &spu);
 
     while (spu.code[spu.ip] != MachineCommands_HLT)
     {
         switch(spu.code[spu.ip])
         {
             case MachineCommands_PUSH:
-                asm_type push_argument =
+                pushArgument(&spu);
 
-                stackPush(spu.program_stack, stack_type item);
+            case MachineCommands_ADD:
+                addCommand(&spu);
+
+            case MachineCommands_MUL:
+                mulCommand(&spu);
+
+            case MachineCommands_DIV:
+                divCommand(&spu);
+
+            case MachineCommands_SUB:
+                supCommand(&spu);
+
+            default:
+                assert(0 && "Unknown command");
         }
     }
 
@@ -61,15 +57,25 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
 
 // static --------------------------------------------------------------------------------------------------------------
 
-ProcessorErrorHandler pushArgument(SPU* spu)
-{
-    asm_type push_argument = 0;
 
-    spu.
+static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu)
+{
+    assert(path_to_program != NULL);
+    assert(spu             != NULL);
+
+    ProcessorErrorHandler return_code = readProgramCode(path_to_program, spu);
+    if (return_code != ProcessorErrorHandler_OK)
+    {
+        return ProcessorErrorHandler_ERROR;
+    }
+
+    spu->ip            = 0;
+    spu->program_stack = stackCtor();
+
 }
 
 
-ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu)
+static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu)
 {
     assert(path_to_program != NULL);
     assert(spu             != NULL);

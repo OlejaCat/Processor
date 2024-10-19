@@ -1,4 +1,4 @@
-SRC_DIRS := ../Stack ../MyMiniLib
+SRC_DIRS := ../Stack ../MyMiniLib ../command_processing
 BUILD_DIR := ../build_processor
 
 CC := gcc
@@ -16,7 +16,7 @@ CFLAGS += -Waggressive-loop-optimizations -Wmissing-declarations -Wcast-align -W
 endif
 
 INCLUDES := -Iinclude $(foreach dir, $(SRC_DIRS), -I$(dir)/include)
-SRCS := $(wildcard $(foreach dir, $(SRC_DIRS), $(dir)/source/*.cpp)) source/main.cpp source/processor.cpp
+SRCS := $(wildcard $(foreach dir, $(SRC_DIRS), $(dir)/source/*.cpp)) source/main.cpp source/processor.cpp source/processor_commands.cpp
 OBJS := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(SRCS)))
 
 ASAN_FLAGS := -fsanitize=address,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
@@ -34,6 +34,9 @@ $(TARGET): $(OBJS)
 	@$(CC) $(CFLAGS) $^ -o $@
 
 $(BUILD_DIR)/%.o: source/%.cpp
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: ../command_processing/source/%.cpp
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: ../Stack/source/%.cpp
