@@ -1,6 +1,7 @@
 #ifndef COMMAND_HANDLER_H
 #define COMMAND_HANDLER_H
 
+// FIXME attribute лучшн обвернуть в макрос который по разному разворачивыается в зависимости от компилятора
 __attribute__((unused)) static const char* PUSH_COMMAND = "PUSH";
 __attribute__((unused)) static const char* ADD_COMMAND  = "ADD";
 __attribute__((unused)) static const char* MUL_COMMAND  = "MUL";
@@ -23,8 +24,6 @@ typedef enum MachineCommands
     MachineCommands_IN      =  7,
     MachineCommands_POP     =  8,
 } MachineCommands;
-
-MachineCommands convertAsmToMachine(const char* command);
 
 #endif // COMMAND_HANDLER_H
 

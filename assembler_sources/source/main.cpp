@@ -14,7 +14,7 @@ int main(const int argc, const char** argv)
 
     if (argc == 3)
     {
-        assembleFileToMachineCode(argv[1], argv[2]);
+        assembleFile(argv[1], argv[2]);
     }
 
     return 0;

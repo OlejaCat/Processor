@@ -7,6 +7,6 @@ typedef enum AssemblerErrorHandler
     AssemblerErrorHandler_ERROR = 1,
 } AssemblerErrorHandler;
 
-AssemblerErrorHandler assembleFileToMachineCode(const char* input_file, const char* output_file);
+AssemblerErrorHandler assembleFile(const char* input_file, const char* output_file);
 
 #endif // ASSEMBLER_H

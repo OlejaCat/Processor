@@ -1,19 +1,42 @@
 #include "processor.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <assert.h>
 
 #include "helpful_functions.h"
 #include "command_handler.h"
-#include "processor_commands.h"
+#include "stack.h"
 
 
 // static --------------------------------------------------------------------------------------------------------------
 
 
-static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu);
-static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu);
-static ProcessorErrorHandler spuDtor(SPU* spu);
+typedef int arguments_type;
+
+typedef struct SPU
+{
+    uint8_t* code;
+    size_t   ip;
+    size_t   size_of_code;
+    Stack*   program_stack;
+    bool     end_flag;
+} SPU;
+
+static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* const spu);
+static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* const spu);
+static ProcessorErrorHandler spuDtor(SPU* const spu);
+
+static void processMachineCode(SPU* const spu);
+
+static void pushArgument(SPU* const spu);
+static void addCommand(SPU* const spu);
+static void mulCommand(SPU* const spu);
+static void supCommand(SPU* const spu);
+static void divCommand(SPU* const spu);
+static void outCommand(SPU* const spu);
+static void inCommand(SPU* const spu);
+static void hltCommand(SPU* const spu);
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -26,50 +49,9 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
     SPU spu = {};
     spuInit(path_to_program, &spu);
 
-    while (spu.code[spu.ip] != MachineCommands_HLT)
-    {
-        switch(spu.code[spu.ip])
-        {
-            case MachineCommands_PUSH:
-                pushArgument(&spu);
-                break;
-
-            case MachineCommands_ADD:
-                addCommand(&spu);
-                break;
-
-            case MachineCommands_MUL:
-                mulCommand(&spu);
-                break;
-
-            case MachineCommands_DIV:
-                divCommand(&spu);
-                break;
-
-            case MachineCommands_SUB:
-                supCommand(&spu);
-                break;
-
-            case MachineCommands_OUT:
-                outCommand(&spu);
-                break;
-
-            case MachineCommands_IN:
-                inCommand(&spu);
-                break;
-
-            default:
-                assert(0 && "Unknown command");
-        }
-
-        spu.ip++;
-    }
-
-    hltCommand(&spu);
+    processMachineCode(&spu);
 
     spuDtor(&spu);
-
-    stackDtor(spu.program_stack);
 
     return ProcessorErrorHandler_OK;
 }
@@ -77,15 +59,45 @@ ProcessorErrorHandler executeProgram(const char* path_to_program)
 
 // static --------------------------------------------------------------------------------------------------------------
 
-static ProcessorErrorHandler spuDtor(SPU* spu)
-{
-    free(spu->code);
 
-    return ProcessorErrorHandler_OK;
+static void processMachineCode(SPU* const spu)
+{
+    while (spu->end_flag)
+    {
+        switch(spu->code[spu->ip])
+        {
+            case MachineCommands_PUSH: pushArgument(spu);
+                                       break;
+
+            case MachineCommands_ADD:  addCommand(spu);
+                                       break;
+
+            case MachineCommands_MUL:  mulCommand(spu);
+                                       break;
+
+            case MachineCommands_DIV:  divCommand(spu);
+                                       break;
+
+            case MachineCommands_SUB:  supCommand(spu);
+                                       break;
+
+            case MachineCommands_OUT:  outCommand(spu);
+                                       break;
+
+            case MachineCommands_IN:   inCommand(spu);
+                                       break;
+
+            case MachineCommands_HLT:  hltCommand(spu);
+                                       break;
+
+            default:                   assert(0 && "Unknown command");
+        }
+        spu->ip++;
+    }
 }
 
 
-static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu)
+static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* const spu)
 {
     assert(path_to_program != NULL);
     assert(spu             != NULL);
@@ -98,12 +110,24 @@ static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* spu)
 
     spu->ip            = 0;
     spu->program_stack = stackCtor();
+    spu->end_flag      = true;
 
     return ProcessorErrorHandler_OK;
 }
 
 
-static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* spu)
+static ProcessorErrorHandler spuDtor(SPU* spu)
+{
+    free(spu->code);
+    stackDtor(spu->program_stack);
+
+    memset(spu, 0, sizeof(SPU));
+
+    return ProcessorErrorHandler_OK;
+}
+
+
+static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* const spu)
 {
     assert(path_to_program != NULL);
     assert(spu             != NULL);
@@ -138,4 +162,119 @@ static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* s
     spu->size_of_code = size_of_file;
 
     return ProcessorErrorHandler_OK;
+}
+
+
+static void pushArgument(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type argument = 0;
+
+    memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+    spu->ip += sizeof(arguments_type);
+
+    stackPush(spu->program_stack, argument);
+}
+
+static void addCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    arguments_type result = 0;
+    result = first_element + second_element;
+
+    stackPush(spu->program_stack, result);
+}
+
+
+static void mulCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    arguments_type result = 0;
+    result = first_element * second_element;
+
+    stackPush(spu->program_stack, result);
+}
+
+
+static void divCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    arguments_type result = 0;
+    result = first_element / second_element;
+
+    stackPush(spu->program_stack, result);
+}
+
+
+static void supCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    arguments_type result = 0;
+    result = first_element - second_element;
+
+    stackPush(spu->program_stack, result);
+}
+
+
+static void outCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type element = 0;
+
+    stackPop(spu->program_stack, &element);
+
+    printf("Program out: %d\n", element);
+}
+
+
+static void inCommand(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    arguments_type element = 0;
+
+    printf("Enter argument: ");
+    scanf("%d", &element);
+
+    stackPush(spu->program_stack, element);
+}
+
+
+static void hltCommand(SPU* const spu)
+{
+    spu->end_flag = false;
+
+    // добавить сброс дампа
+
+    printf("Program end\n");
 }
