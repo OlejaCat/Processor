@@ -10,6 +10,13 @@ __attribute__((unused)) static const char* DIV_COMMAND  = "DIV";
 __attribute__((unused)) static const char* OUT_COMMAND  = "OUT";
 __attribute__((unused)) static const char* IN_COMMAND   = "IN";
 __attribute__((unused)) static const char* HLT_COMMAND  = "HLT";
+__attribute__((unused)) static const char* JMP_COMMAND  = "JMP";
+__attribute__((unused)) static const char* JA_COMMAND   = "JA";
+__attribute__((unused)) static const char* JAE_COMMAND  = "JAE";
+__attribute__((unused)) static const char* JB_COMMAND   = "JB";
+__attribute__((unused)) static const char* JBE_COMMAND  = "JBE";
+__attribute__((unused)) static const char* JE_COMMAND   = "JE";
+__attribute__((unused)) static const char* JNE_COMMAND  = "JNE";
 
 typedef enum MachineCommands
 {
@@ -23,6 +30,13 @@ typedef enum MachineCommands
     MachineCommands_OUT     =  6,
     MachineCommands_IN      =  7,
     MachineCommands_POP     =  8,
+    MachineCommands_JMP     =  9,
+    MachineCommands_JA      =  10,
+    MachineCommands_JAE     =  11,
+    MachineCommands_JB      =  12,
+    MachineCommands_JBE     =  13,
+    MachineCommands_JE      =  14,
+    MachineCommands_JNE     =  16,
 } MachineCommands;
 
 #endif // COMMAND_HANDLER_H

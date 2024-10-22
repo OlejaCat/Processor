@@ -37,6 +37,13 @@ static void divCommand(SPU* const spu);
 static void outCommand(SPU* const spu);
 static void inCommand(SPU* const spu);
 static void hltCommand(SPU* const spu);
+static void jmpCommand(SPU* const spu);
+static void jaCommand(SPU* const spu);
+static void jaeCommand(SPU* const spu);
+static void jbCommand(SPU* const spu);
+static void jbeCommand(SPU* const spu);
+static void jeCommand(SPU* const spu);
+static void jneCommand(SPU* const spu);
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -85,6 +92,27 @@ static void processMachineCode(SPU* const spu)
                                        break;
 
             case MachineCommands_IN:   inCommand(spu);
+                                       break;
+
+            case MachineCommands_JMP:  jmpCommand(spu);
+                                       break;
+
+            case MachineCommands_JA:   jaCommand(spu);
+                                       break;
+
+            case MachineCommands_JAE:  jaeCommand(spu);
+                                       break;
+
+            case MachineCommands_JB:   jbCommand(spu);
+                                       break;
+
+            case MachineCommands_JBE:  jbeCommand(spu);
+                                       break;
+
+            case MachineCommands_JE:   jeCommand(spu);
+                                       break;
+
+            case MachineCommands_JNE:  jneCommand(spu);
                                        break;
 
             case MachineCommands_HLT:  hltCommand(spu);
@@ -270,11 +298,127 @@ static void inCommand(SPU* const spu)
 }
 
 
+static void jmpCommand(SPU* const spu)
+{
+    arguments_type argument = 0;
+
+    memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+    spu->ip = (size_t)argument - 1;
+}
+
+
+static void jaCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element > second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
+
+static void jaeCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element >= second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
+
+static void jbCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element < second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
+
+static void jbeCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element <= second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
+
+static void jeCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element == second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
+
+static void jneCommand(SPU* const spu)
+{
+    arguments_type first_element  = 0;
+    arguments_type second_element = 0;
+
+    stackPop(spu->program_stack, &first_element);
+    stackPop(spu->program_stack, &second_element);
+
+    if (first_element != second_element)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip = (size_t)argument - 1;
+    }
+}
+
 static void hltCommand(SPU* const spu)
 {
     spu->end_flag = false;
 
-    // добавить сброс дампа
+    // FIXME добавить сброс дампа
 
     printf("Program end\n");
 }

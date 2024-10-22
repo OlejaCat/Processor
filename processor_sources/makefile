@@ -16,7 +16,7 @@ CFLAGS += -Waggressive-loop-optimizations -Wmissing-declarations -Wcast-align -W
 endif
 
 INCLUDES := -Iinclude $(foreach dir, $(SRC_DIRS), -I$(dir)/include)
-SRCS := $(wildcard $(foreach dir, $(SRC_DIRS), $(dir)/source/*.cpp)) source/main.cpp source/processor.cpp source/processor_commands.cpp
+SRCS := $(wildcard $(foreach dir, $(SRC_DIRS), $(dir)/source/*.cpp)) source/main.cpp source/processor.cpp
 OBJS := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(SRCS)))
 
 ASAN_FLAGS := -fsanitize=address,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
