@@ -13,14 +13,18 @@
 
 
 typedef int arguments_type;
+static const size_t NUMBER_OF_REGISTERS = 6;
+static const uint8_t COMMAND_MASK = 0b00011111;
+static const uint8_t FLAG_MOVED_MASK = 0b00000111;
 
 typedef struct SPU
 {
-    uint8_t* code;
-    size_t   ip;
-    size_t   size_of_code;
-    Stack*   program_stack;
-    bool     end_flag;
+    uint8_t*       code;
+    size_t         ip;
+    size_t         size_of_code;
+    Stack*         program_stack;
+    arguments_type registers[NUMBER_OF_REGISTERS + 1];
+    bool           end_flag;
 } SPU;
 
 static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* const spu);
@@ -30,6 +34,7 @@ static ProcessorErrorHandler spuDtor(SPU* const spu);
 static void processMachineCode(SPU* const spu);
 
 static void pushArgument(SPU* const spu);
+static void popRegister(SPU* const spu);
 static void addCommand(SPU* const spu);
 static void mulCommand(SPU* const spu);
 static void supCommand(SPU* const spu);
@@ -71,52 +76,39 @@ static void processMachineCode(SPU* const spu)
 {
     while (spu->end_flag)
     {
-        switch(spu->code[spu->ip])
+        switch(spu->code[spu->ip] & COMMAND_MASK)
         {
-            case MachineCommands_PUSH: pushArgument(spu);
-                                       break;
+            case MachineCommands_PUSH: pushArgument(spu); break;
 
-            case MachineCommands_ADD:  addCommand(spu);
-                                       break;
+            case MachineCommands_POP:  popRegister(spu);  break;
 
-            case MachineCommands_MUL:  mulCommand(spu);
-                                       break;
+            case MachineCommands_ADD:  addCommand(spu);   break;
 
-            case MachineCommands_DIV:  divCommand(spu);
-                                       break;
+            case MachineCommands_MUL:  mulCommand(spu);   break;
 
-            case MachineCommands_SUB:  supCommand(spu);
-                                       break;
+            case MachineCommands_DIV:  divCommand(spu);   break;
 
-            case MachineCommands_OUT:  outCommand(spu);
-                                       break;
+            case MachineCommands_SUB:  supCommand(spu);   break;
 
-            case MachineCommands_IN:   inCommand(spu);
-                                       break;
+            case MachineCommands_OUT:  outCommand(spu);   break;
 
-            case MachineCommands_JMP:  jmpCommand(spu);
-                                       break;
+            case MachineCommands_IN:   inCommand(spu);    break;
 
-            case MachineCommands_JA:   jaCommand(spu);
-                                       break;
+            case MachineCommands_JMP:  jmpCommand(spu);   break;
 
-            case MachineCommands_JAE:  jaeCommand(spu);
-                                       break;
+            case MachineCommands_JA:   jaCommand(spu);    break;
 
-            case MachineCommands_JB:   jbCommand(spu);
-                                       break;
+            case MachineCommands_JAE:  jaeCommand(spu);   break;
 
-            case MachineCommands_JBE:  jbeCommand(spu);
-                                       break;
+            case MachineCommands_JB:   jbCommand(spu);    break;
 
-            case MachineCommands_JE:   jeCommand(spu);
-                                       break;
+            case MachineCommands_JBE:  jbeCommand(spu);   break;
 
-            case MachineCommands_JNE:  jneCommand(spu);
-                                       break;
+            case MachineCommands_JE:   jeCommand(spu);    break;
 
-            case MachineCommands_HLT:  hltCommand(spu);
-                                       break;
+            case MachineCommands_JNE:  jneCommand(spu);   break;
+
+            case MachineCommands_HLT:  hltCommand(spu);   break;
 
             default:                   assert(0 && "Unknown command");
         }
@@ -166,43 +158,65 @@ static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* c
         return ProcessorErrorHandler_OPEN_FILE_ERROR;
     }
 
-    size_t size_of_file = getFileSize(program_file);
+    spu->size_of_code = getFileSize(program_file);
 
-    uint8_t* program_code = (uint8_t*)calloc(size_of_file, sizeof(uint8_t));
-    if (!program_code)
+    spu->code = (uint8_t*)calloc(spu->size_of_code, sizeof(uint8_t));
+    if (!spu->code)
     {
         FCLOSE_NULL(program_file);
         return ProcessorErrorHandler_ERROR;
     }
 
-    size_t return_code = fread(program_code,
-                               sizeof(program_code[0]),
-                               size_of_file,
+    size_t return_code = fread(spu->code,
+                               sizeof(spu->code[0]),
+                               spu->size_of_code,
                                program_file);
-    if (return_code != size_of_file)
+    if (return_code != spu->size_of_code)
     {
-        FREE_NULL(program_code);
+        FREE_NULL(spu->code);
         FCLOSE_NULL(program_file);
         return ProcessorErrorHandler_ERROR;
     }
-
-    spu->code         = program_code;
-    spu->size_of_code = size_of_file;
 
     return ProcessorErrorHandler_OK;
 }
+
+
+// PUSH регистр - пушить значение из регистра в стек
+// POP  регистр - берет значение из стека и кладет в регистр
 
 
 static void pushArgument(SPU* const spu)
 {
     assert(spu != NULL);
 
-    arguments_type argument = 0;
+    uint8_t flags = (spu->code[spu->ip] >> 5) & FLAG_MOVED_MASK;
 
-    memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-    spu->ip += sizeof(arguments_type);
+    if (flags == 2)
+    {
+        spu->ip++;
+        stackPush(spu->program_stack, spu->registers[spu->code[spu->ip]]);
+    }
 
-    stackPush(spu->program_stack, argument);
+    if (flags == 1)
+    {
+        arguments_type argument = 0;
+
+        memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
+        spu->ip += sizeof(arguments_type);
+
+        stackPush(spu->program_stack, argument);
+    }
+}
+
+
+static void popRegister(SPU* const spu)
+{
+    assert(spu != NULL);
+
+    spu->ip++;
+
+    stackPop(spu->program_stack, spu->registers + spu->code[spu->ip]);
 }
 
 static void addCommand(SPU* const spu)
