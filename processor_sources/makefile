@@ -21,7 +21,7 @@ OBJS := $(patsubst %.cpp, $(BUILD_DIR)/%.o, $(notdir $(SRCS)))
 
 ASAN_FLAGS := -fsanitize=address,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
 
-CFLAGS += $(INCLUDES) $(ASAN_FLAGS) -D_CANARY_PROTECT -D_HASH_PROTECT
+CFLAGS += $(INCLUDES) $(ASAN_FLAGS) -D_CANARY_PROTECT -D_HASH_PROTECT -lm
 
 TARGET := ../processor
 

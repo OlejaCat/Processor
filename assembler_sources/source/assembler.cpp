@@ -9,25 +9,24 @@
 #include "helpful_functions.h"
 #include "command_handler.h"
 
-#include "logger.h"
-
 
 // static --------------------------------------------------------------------------------------------------------------
 
-typedef int arguments_type;
+typedef double arguments_type;
 
 typedef struct Mark
 {
-    char*          mark_name;
-    arguments_type code_pointer;
+    char*  mark_name;
+    size_t code_pointer;
 } Mark;
 
 typedef struct Jmp
 {
-    char*          jmp_mark_name;
-    arguments_type code_pointer;
-    bool           flag_seen;
+    char*  jmp_mark_name;
+    size_t code_pointer;
+    bool   flag_seen;
 } Jmp;
+
 typedef struct Assembler
 {
     const char* input_file_path;
@@ -35,14 +34,17 @@ typedef struct Assembler
     char*       input_data;
 
     const char* output_file_path;
-    size_t      output_file_size;
     uint8_t*    output_data;
+    size_t      output_file_size;
+    size_t      output_file_max_size;
 
     Jmp*        jmp_list;      // NOTE было бы классно конечно использовать список
     size_t      jmp_list_size;
+    size_t      jmp_list_max_size;
 
     Mark*       mark_list;
     size_t      mark_list_size;
+    size_t      mark_list_max_size;
 } Assembler;
 
 static MachineCommands convertCommandToMachineCode(const char* const command);
@@ -58,18 +60,13 @@ static AssemblerErrorHandler processJmpCommand(Assembler* const assembler,
 
 static AssemblerErrorHandler readDataFromAsmFile(Assembler* const assembler);
 static AssemblerErrorHandler callocAssemblerStructArrays(Assembler* const assembler);
+static AssemblerErrorHandler reallocArrays(Assembler* const assembler);
 static AssemblerErrorHandler assemblerCtor(Assembler* const assembler);
 static AssemblerErrorHandler assemblerDtor(Assembler* const assembler);
 
 static const size_t SIZE_OF_BUFFER    = 128;
 static const size_t SIZE_OF_MARK_LIST = 32;
-
-static const uint8_t RAM_FLAG      = 0b10000000;
-static const uint8_t REGISTER_FLAG = 0b01000000;
-static const uint8_t CONST_FLAG    = 0b00100000;
-
-#define RETURN_CHECK_MARK \
-
+static const size_t SCALE_FACTOR      = 2;
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -89,7 +86,6 @@ AssemblerErrorHandler assembleFile(const char* input_file_path,
     assemblerCtor(&assembler);
     convertFileToMachineCode(&assembler);
     assemblerDtor(&assembler);
-
 
     return AssemblerErrorHandler_OK;
 }
@@ -130,21 +126,68 @@ static AssemblerErrorHandler callocAssemblerStructArrays(Assembler* const assemb
     {
         return AssemblerErrorHandler_ERROR;
     }
-    assembler->output_file_size = 0;
+    assembler->output_file_max_size = assembler->input_file_size;
+    assembler->output_file_size     = 0;
 
     assembler->jmp_list = (Jmp*)calloc(SIZE_OF_MARK_LIST, sizeof(Jmp));
     if(!assembler->jmp_list)
     {
         return AssemblerErrorHandler_ERROR;
     }
-    assembler->jmp_list_size = 0;
+    assembler->jmp_list_max_size = SIZE_OF_MARK_LIST;
+    assembler->jmp_list_size     = 0;
 
     assembler->mark_list = (Mark*)calloc(SIZE_OF_MARK_LIST, sizeof(Mark));
     if (!assembler->mark_list)
     {
         return AssemblerErrorHandler_ERROR;
     }
-    assembler->mark_list_size = 0;
+    assembler->mark_list_max_size = SIZE_OF_MARK_LIST;
+    assembler->mark_list_size     = 0;
+
+    return AssemblerErrorHandler_OK;
+}
+
+
+static AssemblerErrorHandler reallocArrays(Assembler* const assembler)
+{
+    assert(assembler != NULL);
+
+    if (assembler->output_file_size >= assembler->output_file_max_size - sizeof(arguments_type) - 1)
+    {
+        assembler->output_file_max_size *= SCALE_FACTOR;
+
+        assembler->output_data = (uint8_t*)realloc(assembler->output_data,
+                                                   assembler->output_file_max_size * sizeof(uint8_t));
+        if (!assembler->output_data)
+        {
+            return AssemblerErrorHandler_ERROR;
+        }
+    }
+
+    if (assembler->mark_list_size >= assembler->mark_list_max_size - 1)
+    {
+        assembler->mark_list_max_size *= SCALE_FACTOR;
+
+        assembler->mark_list = (Mark*)realloc(assembler->mark_list,
+                                              assembler->mark_list_max_size * sizeof(Mark));
+        if (!assembler->mark_list)
+        {
+            return AssemblerErrorHandler_ERROR;
+        }
+    }
+
+    if (assembler->jmp_list_size >= assembler->jmp_list_max_size - 1)
+    {
+        assembler->jmp_list_max_size *= SCALE_FACTOR;
+
+        assembler->jmp_list = (Jmp*)realloc(assembler->jmp_list,
+                                            assembler->jmp_list_max_size * sizeof(Jmp));
+        if (!assembler->jmp_list)
+        {
+            return AssemblerErrorHandler_ERROR;
+        }
+    }
 
     return AssemblerErrorHandler_OK;
 }
@@ -253,6 +296,9 @@ static MachineCommands convertCommandToMachineCode(const char* const command)
     RETURN_MACHINE_CODE_(JBE);
     RETURN_MACHINE_CODE_(JE);
     RETURN_MACHINE_CODE_(JNE);
+    RETURN_MACHINE_CODE_(RET);
+    RETURN_MACHINE_CODE_(CALL);
+    RETURN_MACHINE_CODE_(SQRT);
 
 #undef  RETURN_MACHINE_CODE_
 
@@ -284,15 +330,15 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
 {
     assert(assembler != NULL);
 
-    char command_buffer[SIZE_OF_BUFFER]  = {};
-    char string_argument[SIZE_OF_BUFFER] = {};
-    char after_line[SIZE_OF_BUFFER]      = {};
-
 #define COMPARE_RETURNED_COMMAND_(cmd) returned_command == MachineCommands_##cmd
 
     char* ptr_of_string = strtok(assembler->input_data, "\n");
     do
     {
+        char command_buffer[SIZE_OF_BUFFER]  = {};
+        char string_argument[SIZE_OF_BUFFER] = {};
+        char after_line[SIZE_OF_BUFFER]      = {};
+
         sscanf(ptr_of_string, "%s %s%[^;]", command_buffer, string_argument, after_line);
 
         // NOTE добавить обработку комментов
@@ -304,9 +350,10 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
 
         MachineCommands returned_command = convertCommandToMachineCode(command_buffer);
 
-        Log(LogLevel_INFO, "processed command XDDDDD: %d", returned_command);
-
-        assembler->output_data[assembler->output_file_size] = (uint8_t)returned_command;
+        if (returned_command != MachineCommands_UNKNOWN)
+        {
+            assembler->output_data[assembler->output_file_size] = (uint8_t)returned_command;
+        }
 
         if (checkIfMark(command_buffer))
         {
@@ -314,10 +361,15 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
             int mark_size             = 0;
 
             sscanf(command_buffer, "%[^:]%n", mark, &mark_size);
-
             saveMarkToMarkList(assembler, mark, (size_t)mark_size);
-
-            Log(LogLevel_INFO, "We processed mark: %s", command_buffer);
+        }
+        else if(!strcmp(string_argument, FUNC_START_COMMAND))
+        {
+            saveMarkToMarkList(assembler, command_buffer, strlen(command_buffer));
+        }
+        else if(!strcmp(string_argument, FUNC_END_COMMAND))
+        {
+            // NOTE пмргите
         }
         else if (COMPARE_RETURNED_COMMAND_(PUSH)
               || COMPARE_RETURNED_COMMAND_(POP))
@@ -330,7 +382,9 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
               || COMPARE_RETURNED_COMMAND_(DIV)
               || COMPARE_RETURNED_COMMAND_(OUT)
               || COMPARE_RETURNED_COMMAND_(IN)
-              || COMPARE_RETURNED_COMMAND_(HLT))
+              || COMPARE_RETURNED_COMMAND_(HLT)
+              || COMPARE_RETURNED_COMMAND_(RET)
+              || COMPARE_RETURNED_COMMAND_(SQRT))
         {
             assembler->output_file_size++;
         }
@@ -340,15 +394,17 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
               || COMPARE_RETURNED_COMMAND_(JB)
               || COMPARE_RETURNED_COMMAND_(JBE)
               || COMPARE_RETURNED_COMMAND_(JE)
-              || COMPARE_RETURNED_COMMAND_(JNE))
+              || COMPARE_RETURNED_COMMAND_(JNE)
+              || COMPARE_RETURNED_COMMAND_(CALL))
         {
             processJmpCommand(assembler, string_argument);
         }
         else
         {
-            Log(LogLevel_INFO, "HHOOOOOOOOW BLYAT");
             return AssemblerErrorHandler_ERROR;
         }
+
+        reallocArrays(assembler);
     }
     while ((ptr_of_string = strtok(NULL, "\n")) != NULL);
 
@@ -358,21 +414,15 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
 }
 
 
-static AssemblerErrorHandler processJmpCommand(Assembler* const assembler,
-                                               char*            argument)
+static AssemblerErrorHandler processJmpCommand(Assembler* const assembler, char* argument)
 {
-    Log(LogLevel_INFO, "%s", argument);
-
-    if (!checkIfMark(argument))
-    {
-        Log(LogLevel_INFO, "DFJSKL HJKLSKLFDKSLSDKL KLS");
-        return AssemblerErrorHandler_ERROR;
-    }
+    assert(assembler != NULL);
+    assert(argument  != NULL);
 
     char mark[SIZE_OF_BUFFER] = {};
     int  mark_size            = 0;
 
-    sscanf(argument, "%[^:]%n", mark, &mark_size);
+    sscanf(argument, "%s%n", mark, &mark_size);
 
     assembler->output_file_size++;
 
@@ -391,7 +441,6 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
 
     arguments_type number = 0;
 
-
     char first_buffer[SIZE_OF_BUFFER]  = {};
     char second_buffer[SIZE_OF_BUFFER] = {};
 
@@ -402,21 +451,16 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
     return_number = sscanf(argument, "[%[^]+]+ %[^]]", first_buffer, second_buffer);
     if (return_number > 0)
     {
-        Log(LogLevel_INFO, "JZH x2");
-
         machine_code |= RAM_FLAG;
     }
     else
     {
-        Log(LogLevel_INFO, "JZH");
         return_number = sscanf(argument, "%[^+]+%s", first_buffer, second_buffer);
     }
 
-    Log(LogLevel_INFO, "WOWWWW: 1:%s, 2:%s, n:%d", first_buffer, second_buffer, return_number);
-
     if (return_number == 2)
     {
-        return_number = sscanf(first_buffer, "%d", &number);
+        return_number = sscanf(first_buffer, "%lg", &number);
         if (return_number == 1)
         {
             sscanf(second_buffer, "%s", first_buffer);
@@ -428,7 +472,7 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
         }
         else
         {
-            return_number = sscanf(second_buffer, "%d", &number);
+            return_number = sscanf(second_buffer, "%lg", &number);
             if (return_number == 0)
             {
                 return AssemblerErrorHandler_ERROR;
@@ -438,8 +482,6 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
             {
                 return AssemblerErrorHandler_ERROR;
             }
-
-            Log(LogLevel_INFO, "WOw x2");
         }
 
         machine_code |= CONST_FLAG;
@@ -447,7 +489,7 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
     }
     else if (return_number == 1)
     {
-        return_number = sscanf(first_buffer, "%d", &number);
+        return_number = sscanf(first_buffer, "%lg", &number);
         if (return_number == 1)
         {
             machine_code |= CONST_FLAG;
@@ -473,6 +515,7 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
     if ((machine_code & REGISTER_FLAG) == REGISTER_FLAG)
     {
         Registers returned_reg = convertRegisterToMachineCode(first_buffer);
+
         assembler->output_data[assembler->output_file_size] = returned_reg;
         assembler->output_file_size++;
     }
@@ -531,7 +574,7 @@ static void saveMarkToJmpList(Assembler* const assembler, char* mark, size_t mar
     {
         assembler->jmp_list[assembler->jmp_list_size] = {
             .jmp_mark_name = (char*)calloc(mark_size + 1, sizeof(char)),
-            .code_pointer  = (int)assembler->output_file_size,
+            .code_pointer  = assembler->output_file_size,
             .flag_seen     = false,
         };
 
@@ -549,7 +592,7 @@ static void saveMarkToMarkList(Assembler* const assembler, char* mark, size_t ma
 
     assembler->mark_list[assembler->mark_list_size] = {
         .mark_name    = (char*)calloc(mark_size + 1, sizeof(char*)),
-        .code_pointer = (arguments_type)assembler->output_file_size,
+        .code_pointer = assembler->output_file_size,
     };
 
     strcpy(assembler->mark_list[assembler->mark_list_size].mark_name, mark);
@@ -562,7 +605,7 @@ static void saveMarkToMarkList(Assembler* const assembler, char* mark, size_t ma
         {
             if (!strcmp(mark, assembler->jmp_list[current_jmp].jmp_mark_name))
             {
-                memcpy(assembler->output_data + assembler->jmp_list[current_jmp].code_pointer,
+                memcpy(assembler->output_data + (size_t)assembler->jmp_list[current_jmp].code_pointer,
                        &assembler->output_file_size,
                        sizeof(arguments_type));
 
@@ -576,5 +619,7 @@ static void saveMarkToMarkList(Assembler* const assembler, char* mark, size_t ma
 
 static bool checkIfMark(char* buffer)
 {
-    return strchr(buffer, ':') != NULL ? true : false;
+    assert(buffer != NULL);
+
+    return strchr(buffer, ':') != NULL;
 }
