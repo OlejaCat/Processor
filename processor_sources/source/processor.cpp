@@ -9,6 +9,7 @@
 #include "command_handler.h"
 #include "work_with_doubles.h"
 #include "stack.h"
+#include "dump.h"
 
 #include "logger.h"
 
@@ -585,7 +586,7 @@ static void hltCommand(SPU* const spu)
 
     spu->end_flag = false;
 
-    // NOTE добавить сброс дампа
+    writeStackDumpLog(spu->program_stack);
 
     printf("Program end\n");
 }
