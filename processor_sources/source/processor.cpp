@@ -26,16 +26,17 @@ static const uint8_t FLAG_MOVED_MASK = 0b1110'0000;
 
 typedef struct SPU
 {
-    uint8_t*       code;
-    size_t         ip;
-    size_t         size_of_code;
+    uint8_t*        code;
+    size_t          ip;
+    size_t          size_of_code;
 
-    Stack*         program_stack;
-    arguments_type ram[SIZE_OF_RAM];
-    arguments_type registers[NUMBER_OF_REGISTERS + 1];
-    Stack*         function_stack;
+    Stack*          program_stack;
+    Stack*          function_stack;
 
-    bool           end_flag;
+    arguments_type* registers;
+    arguments_type* ram;
+
+    bool            end_flag;
 } SPU;
 
 static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* const spu);
@@ -48,7 +49,7 @@ static void pushArgument(SPU* const spu);
 static void popRegister(SPU* const spu);
 static void addCommand(SPU* const spu);
 static void mulCommand(SPU* const spu);
-static void supCommand(SPU* const spu);
+static void subCommand(SPU* const spu);
 static void divCommand(SPU* const spu);
 static void sqrtCommand(SPU* const spu);
 static void outCommand(SPU* const spu);
@@ -104,7 +105,7 @@ static void processMachineCode(SPU* const spu)
 
             case MachineCommands_DIV:  divCommand(spu);   break;
 
-            case MachineCommands_SUB:  supCommand(spu);   break;
+            case MachineCommands_SUB:  subCommand(spu);   break;
 
             case MachineCommands_SQRT: sqrtCommand(spu);  break;
 
@@ -134,6 +135,7 @@ static void processMachineCode(SPU* const spu)
 
             default:                   assert(0 && "Unknown command");
         }
+        writeStackDumpLog(spu->program_stack);
         spu->ip++;
     }
 }
@@ -155,13 +157,31 @@ static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* const spu
     spu->function_stack = stackCtor();
     spu->end_flag       = true;
 
+    spu->registers = (arguments_type*)calloc(NUMBER_OF_REGISTERS + 1,
+                                             sizeof(arguments_type));
+    if (!spu->registers)
+    {
+        return ProcessorErrorHandler_ERROR;
+    }
+
+    spu->ram = (arguments_type*)calloc(SIZE_OF_RAM,
+                                       sizeof(arguments_type));
+    if (!spu->ram)
+    {
+        return ProcessorErrorHandler_ERROR;
+    }
+
     return ProcessorErrorHandler_OK;
 }
 
 
 static ProcessorErrorHandler spuDtor(SPU* spu)
 {
+    assert(spu != NULL);
+
     free(spu->code);
+    free(spu->registers);
+    free(spu->ram);
 
     stackDtor(spu->program_stack);
     stackDtor(spu->function_stack);
@@ -207,17 +227,11 @@ static ProcessorErrorHandler readProgramCode(const char* path_to_program, SPU* c
 }
 
 
-// PUSH регистр - пушить значение из регистра в стек
-// POP  регистр - берет значение из стека и кладет в регистр
-
-
 static void pushArgument(SPU* const spu)
 {
     assert(spu != NULL);
 
     uint8_t flags = spu->code[spu->ip] & FLAG_MOVED_MASK;
-
-    Log(LogLevel_INFO, "flags: %d ip: %d", flags & CONST_FLAG, spu->ip);
 
     arguments_type argument = 0;
 
@@ -241,8 +255,6 @@ static void pushArgument(SPU* const spu)
     {
         argument = spu->ram[(size_t)argument];
     }
-
-    Log(LogLevel_DEBUG, "PUSH arg: %lg ", argument);
 
     stackPush(spu->program_stack, argument);
 }
@@ -279,7 +291,6 @@ static void popRegister(SPU* const spu)
     else
     {
         spu->ip++;
-        Log(LogLevel_DEBUG, "Pop made reg: %d", spu->code[spu->ip]);
         stackPop(spu->program_stack, spu->registers + spu->code[spu->ip]);
     }
 }
@@ -335,7 +346,7 @@ static void divCommand(SPU* const spu)
 }
 
 
-static void supCommand(SPU* const spu)
+static void subCommand(SPU* const spu)
 {
     assert(spu != NULL);
 
@@ -426,7 +437,7 @@ static void jaCommand(SPU* const spu)
 }
 
 
-static void jaeCommand(SPU* const spu)
+static void     jaeCommand(SPU* const spu)
 {
     assert(spu != NULL);
 
@@ -441,7 +452,7 @@ static void jaeCommand(SPU* const spu)
         size_t argument = 0;
 
         memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-        spu->ip = (size_t)argument - 1;
+        spu->ip = argument - 1;
     }
     else
     {
@@ -465,7 +476,7 @@ static void jbCommand(SPU* const spu)
         size_t argument = 0;
 
         memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-        spu->ip = (size_t)argument - 1;
+        spu->ip = argument - 1;
     }
     else
     {
@@ -489,7 +500,7 @@ static void jbeCommand(SPU* const spu)
         size_t argument = 0;
 
         memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-        spu->ip = (size_t)argument - 1;
+        spu->ip = argument - 1;
     }
     else
     {
@@ -510,11 +521,10 @@ static void jeCommand(SPU* const spu)
 
     if (equatTwoDoubles(first_element, second_element))
     {
-        arguments_type argument = 0;
+        size_t argument = 0;
 
         memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-
-        spu->ip = (size_t)argument - 1;
+        spu->ip = argument - 1;
     }
     else
     {
@@ -538,7 +548,7 @@ static void jneCommand(SPU* const spu)
         size_t argument = 0;
 
         memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
-        spu->ip = (size_t)argument - 1;
+        spu->ip = argument - 1;
     }
     else
     {
@@ -557,7 +567,7 @@ static void retCommand(SPU* const spu)
     size_t pointer = 0;
     memcpy(&pointer, &pointer_double, sizeof(arguments_type));
 
-    spu->ip = pointer;
+    spu->ip = pointer - 1;
 }
 
 
@@ -575,8 +585,7 @@ static void callCommand(SPU* const spu)
     size_t argument = 0;
     memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
 
-    Log(LogLevel_INFO, "CALL: %d", argument);
-    spu->ip = (size_t)argument - 1;
+    spu->ip = argument - 1;
 }
 
 

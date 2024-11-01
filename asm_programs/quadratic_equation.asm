@@ -22,6 +22,7 @@ hlt
 QUADRATIC_CASE proc
     push ax
     push cx
+
     mul
 
     push 4
@@ -37,8 +38,9 @@ QUADRATIC_CASE proc
 
     push 0
     push dx
+
     jae ROOTS
-        PUSH 666
+        push 888888
         jmp OUT_QUADRATIC
 
     ROOTS:
@@ -65,6 +67,7 @@ QUADRATIC_CASE proc
 
         push 2
         push ax
+        mul
 
         push dx
 
@@ -94,20 +97,21 @@ LINEAR_CASE proc
         push cx
 
         jne CZERO
-            push 666
+            push 888888
 
 
         CZERO:
-            push 667
+            push -66666
 
         jmp OUT_LINEAR
 
     B_IS_ZERO:
+        push bx
+
         push -1
         push cx
         mul
 
-        push bx
         div
 
     OUT_LINEAR:

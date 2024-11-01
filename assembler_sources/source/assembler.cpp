@@ -9,6 +9,8 @@
 #include "helpful_functions.h"
 #include "command_handler.h"
 
+#include "logger.h"
+
 
 // static --------------------------------------------------------------------------------------------------------------
 
@@ -64,7 +66,7 @@ static AssemblerErrorHandler reallocArrays(Assembler* const assembler);
 static AssemblerErrorHandler assemblerCtor(Assembler* const assembler);
 static AssemblerErrorHandler assemblerDtor(Assembler* const assembler);
 
-static const size_t SIZE_OF_BUFFER    = 128;
+static const size_t SIZE_OF_BUFFER    = 256;
 static const size_t SIZE_OF_MARK_LIST = 32;
 static const size_t SCALE_FACTOR      = 2;
 
@@ -277,7 +279,7 @@ static MachineCommands convertCommandToMachineCode(const char* const command)
     assert(command != NULL);
 
 #define RETURN_MACHINE_CODE_(command_given) \
-    if (!strncmp(command, command_given##_COMMAND, strlen(command_given##_COMMAND))) \
+    if (!strcmp(command, command_given##_COMMAND)) \
         return MachineCommands_##command_given;
 
     RETURN_MACHINE_CODE_(HLT);
@@ -358,7 +360,7 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
         if (checkIfMark(command_buffer))
         {
             char mark[SIZE_OF_BUFFER] = {};
-            int mark_size             = 0;
+            int  mark_size            = 0;
 
             sscanf(command_buffer, "%[^:]%n", mark, &mark_size);
             saveMarkToMarkList(assembler, mark, (size_t)mark_size);
@@ -401,10 +403,17 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
         }
         else
         {
+            Log(LogLevel_INFO, "И как ты тут оказался, скажи, тебе делать нечего, \nя стараюсь, чтобы оно работало...");
+
+            Log(LogLevel_INFO, "Processing line: %s\n ip: %d command: %d\n Cmd: %s, Arg: %s", ptr_of_string,
+        assembler->output_file_size, returned_command, command_buffer, string_argument);
             return AssemblerErrorHandler_ERROR;
         }
 
         reallocArrays(assembler);
+
+        Log(LogLevel_INFO, "Processing line: %s\n ip: %d command: %d\n Cmd: %s, Arg: %s", ptr_of_string,
+        assembler->output_file_size, returned_command, command_buffer, string_argument);
     }
     while ((ptr_of_string = strtok(NULL, "\n")) != NULL);
 
@@ -512,7 +521,7 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
     assembler->output_data[assembler->output_file_size] = machine_code;
     assembler->output_file_size++;
 
-    if ((machine_code & REGISTER_FLAG) == REGISTER_FLAG)
+    if (machine_code & REGISTER_FLAG)
     {
         Registers returned_reg = convertRegisterToMachineCode(first_buffer);
 
@@ -520,7 +529,7 @@ static AssemblerErrorHandler parseArgument(Assembler* const assembler, char* arg
         assembler->output_file_size++;
     }
 
-    if ((machine_code & CONST_FLAG) == CONST_FLAG)
+    if (machine_code & CONST_FLAG)
     {
         memcpy(assembler->output_data + assembler->output_file_size,
                &number,
@@ -566,7 +575,6 @@ static void saveMarkToJmpList(Assembler* const assembler, char* mark, size_t mar
                    sizeof(arguments_type));
 
             flag_mark_met = true;
-            break;
         }
     }
 
@@ -591,7 +599,7 @@ static void saveMarkToMarkList(Assembler* const assembler, char* mark, size_t ma
     assert(mark      != NULL);
 
     assembler->mark_list[assembler->mark_list_size] = {
-        .mark_name    = (char*)calloc(mark_size + 1, sizeof(char*)),
+        .mark_name    = (char*)calloc(mark_size + 1, sizeof(char)),
         .code_pointer = assembler->output_file_size,
     };
 
@@ -605,12 +613,11 @@ static void saveMarkToMarkList(Assembler* const assembler, char* mark, size_t ma
         {
             if (!strcmp(mark, assembler->jmp_list[current_jmp].jmp_mark_name))
             {
-                memcpy(assembler->output_data + (size_t)assembler->jmp_list[current_jmp].code_pointer,
+                memcpy(assembler->output_data + assembler->jmp_list[current_jmp].code_pointer,
                        &assembler->output_file_size,
                        sizeof(arguments_type));
 
                 assembler->jmp_list[current_jmp].flag_seen = true;
-                break;
             }
         }
     }
