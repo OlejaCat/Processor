@@ -11,8 +11,6 @@
 #include "stack.h"
 #include "dump.h"
 
-#include "logger.h"
-
 
 // static --------------------------------------------------------------------------------------------------------------
 
@@ -20,9 +18,12 @@
 typedef double arguments_type;
 
 static const size_t NUMBER_OF_REGISTERS = 6;
-static const size_t SIZE_OF_RAM = 256;
+static const size_t SIZE_OF_RAM = 4096;
+static const size_t ROWS = 64;
+static const size_t COLUMNS = 64;
 static const uint8_t COMMAND_MASK = 0b0001'1111;
 static const uint8_t FLAG_MOVED_MASK = 0b1110'0000;
+static const char SPACE = ' ';
 
 typedef struct SPU
 {
@@ -33,7 +34,7 @@ typedef struct SPU
     Stack*          program_stack;
     Stack*          function_stack;
 
-    arguments_type* registers;
+    arguments_type  registers[NUMBER_OF_REGISTERS + 1];
     arguments_type* ram;
 
     bool            end_flag;
@@ -64,6 +65,7 @@ static void jeCommand(SPU* const spu);
 static void jneCommand(SPU* const spu);
 static void retCommand(SPU* const spu);
 static void callCommand(SPU* const spu);
+static void drawCommand(SPU* const spu);
 
 
 // public --------------------------------------------------------------------------------------------------------------
@@ -131,11 +133,12 @@ static void processMachineCode(SPU* const spu)
 
             case MachineCommands_CALL: callCommand(spu);  break;
 
+            case MachineCommands_DRAW: drawCommand(spu);  break;
+
             case MachineCommands_HLT:  hltCommand(spu);   break;
 
-            default:                   assert(0 && "Unknown command");
+            default:                   abortWithMessage("Unknown command");
         }
-        writeStackDumpLog(spu->program_stack);
         spu->ip++;
     }
 }
@@ -157,18 +160,16 @@ static ProcessorErrorHandler spuInit(const char* path_to_program, SPU* const spu
     spu->function_stack = stackCtor();
     spu->end_flag       = true;
 
-    spu->registers = (arguments_type*)calloc(NUMBER_OF_REGISTERS + 1,
-                                             sizeof(arguments_type));
-    if (!spu->registers)
-    {
-        return ProcessorErrorHandler_ERROR;
-    }
-
     spu->ram = (arguments_type*)calloc(SIZE_OF_RAM,
                                        sizeof(arguments_type));
     if (!spu->ram)
     {
         return ProcessorErrorHandler_ERROR;
+    }
+
+    for (size_t i = 0; i < SIZE_OF_RAM; i++)
+    {
+        spu->ram[i] = SPACE;
     }
 
     return ProcessorErrorHandler_OK;
@@ -180,7 +181,6 @@ static ProcessorErrorHandler spuDtor(SPU* spu)
     assert(spu != NULL);
 
     free(spu->code);
-    free(spu->registers);
     free(spu->ram);
 
     stackDtor(spu->program_stack);
@@ -253,10 +253,12 @@ static void pushArgument(SPU* const spu)
 
     if (flags & RAM_FLAG)
     {
-        argument = spu->ram[(size_t)argument];
+        argument = spu->ram[(int)argument];
     }
-
-    stackPush(spu->program_stack, argument);
+    else
+    {
+        stackPush(spu->program_stack, argument);
+    }
 }
 
 
@@ -268,25 +270,25 @@ static void popRegister(SPU* const spu)
 
     if (flags & RAM_FLAG)
     {
-        size_t index = 0;
+        int index = 0;
 
         if (flags & REGISTER_FLAG)
         {
             spu->ip++;
-            index = (size_t)(*(spu->registers + spu->code[spu->ip]));
+            index = (int)(spu->registers[spu->code[spu->ip]]);
         }
 
         if (flags & CONST_FLAG)
         {
-            size_t const_argument = 0;
+            arguments_type const_argument = 0;
 
             memcpy(&const_argument, spu->code + spu->ip + 1, sizeof(arguments_type));
             spu->ip += sizeof(arguments_type);
 
-            index += const_argument;
+            index += (int)const_argument;
         }
 
-        stackPop(spu->program_stack, spu->ram + index);
+        stackPop(spu->program_stack, spu->ram  + index);
     }
     else
     {
@@ -437,7 +439,7 @@ static void jaCommand(SPU* const spu)
 }
 
 
-static void     jaeCommand(SPU* const spu)
+static void jaeCommand(SPU* const spu)
 {
     assert(spu != NULL);
 
@@ -586,6 +588,21 @@ static void callCommand(SPU* const spu)
     memcpy(&argument, spu->code + spu->ip + 1, sizeof(arguments_type));
 
     spu->ip = argument - 1;
+}
+
+
+static void drawCommand(SPU* const spu)
+{
+    for (size_t i = 0; i < ROWS; i++)
+    {
+        for (size_t j = 0; j < COLUMNS; j++)
+        {
+            putc((int)spu->ram[ROWS * i + j], stdout);
+            putc(SPACE, stdout);
+        }
+
+        putc('\n', stdout);
+    }
 }
 
 

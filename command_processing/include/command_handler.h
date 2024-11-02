@@ -29,6 +29,7 @@ __attribute__((unused)) static const char* CALL_COMMAND       = "call";
 __attribute__((unused)) static const char* RET_COMMAND        = "ret";
 __attribute__((unused)) static const char* FUNC_START_COMMAND = "proc";
 __attribute__((unused)) static const char* FUNC_END_COMMAND   = "endp";
+__attribute__((unused)) static const char* DRAW_COMMAND       = "draw";
 
 typedef enum MachineCommands
 {
@@ -52,6 +53,7 @@ typedef enum MachineCommands
     MachineCommands_JNE     =  16,
     MachineCommands_CALL    =  17,
     MachineCommands_RET     =  18,
+    MachineCommands_DRAW    =  19,
 } MachineCommands;
 
 __attribute__((unused)) static const char* AX_REGISTER = "ax";

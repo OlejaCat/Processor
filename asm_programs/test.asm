@@ -1,16 +1,12 @@
-in
-out
-in
-push 10
+push 40
+push 41
+push 42
+push 43
+push 44
+push 1
 pop ax
-push ax
-push ax
-jmp METKA
-add
-out
-METKA:
-mul
-out
+pop [ax]
+draw
 hlt
 
 

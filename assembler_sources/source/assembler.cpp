@@ -301,6 +301,7 @@ static MachineCommands convertCommandToMachineCode(const char* const command)
     RETURN_MACHINE_CODE_(RET);
     RETURN_MACHINE_CODE_(CALL);
     RETURN_MACHINE_CODE_(SQRT);
+    RETURN_MACHINE_CODE_(DRAW);
 
 #undef  RETURN_MACHINE_CODE_
 
@@ -386,7 +387,8 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
               || COMPARE_RETURNED_COMMAND_(IN)
               || COMPARE_RETURNED_COMMAND_(HLT)
               || COMPARE_RETURNED_COMMAND_(RET)
-              || COMPARE_RETURNED_COMMAND_(SQRT))
+              || COMPARE_RETURNED_COMMAND_(SQRT)
+              || COMPARE_RETURNED_COMMAND_(DRAW))
         {
             assembler->output_file_size++;
         }
@@ -403,17 +405,13 @@ static AssemblerErrorHandler convertFileToMachineCode(Assembler* const assembler
         }
         else
         {
-            Log(LogLevel_INFO, "И как ты тут оказался, скажи, тебе делать нечего, \nя стараюсь, чтобы оно работало...");
 
             Log(LogLevel_INFO, "Processing line: %s\n ip: %d command: %d\n Cmd: %s, Arg: %s", ptr_of_string,
-        assembler->output_file_size, returned_command, command_buffer, string_argument);
+                assembler->output_file_size, returned_command, command_buffer, string_argument);
             return AssemblerErrorHandler_ERROR;
         }
 
         reallocArrays(assembler);
-
-        Log(LogLevel_INFO, "Processing line: %s\n ip: %d command: %d\n Cmd: %s, Arg: %s", ptr_of_string,
-        assembler->output_file_size, returned_command, command_buffer, string_argument);
     }
     while ((ptr_of_string = strtok(NULL, "\n")) != NULL);
 
