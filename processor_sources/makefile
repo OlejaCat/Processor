@@ -50,6 +50,6 @@ $(BUILD_DIR)/%.o: ../MyMiniLib/source/%.cpp
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
+	@rm -rf $(BUILD_DIR) $(TARGET)
 
 .PHONY: all clean
