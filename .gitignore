@@ -1,0 +1,7 @@
+build_assembler/
+build_processor/
+*.o
+compiler
+processor
+log.txt
+dump.txt
